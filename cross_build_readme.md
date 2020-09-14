@@ -1,20 +1,14 @@
 linux 交叉编译mtools和测试过程
-1. 编译工程前首先搭建好NDK交叉编译环境，
-### 编译工具链
+1. 下载NDK并解压, 设置NDK环境变量(如果已经设置请忽略本过程) 
+   wget -c https://dl.google.com/android/repository/android-ndk-r21-linux-x86_64.zip
+   export ANDROID_NDK="/opt/android-ndk-r21"
+   export PATH=$PATH:$ANDROID_NDK
   
-使用`Android NDK`工具来交叉编译目标应用。
-代码目录里的`build_toolchain.sh`脚本用于下载NDK工具，并生成`standalone`交叉工具链。
-以arm32为例介绍编译过程
-2. 如果工具链搭建OK clone mtools 项目到 工具链standalone_toolchains32 同级目录
+2. clone mtools工程代码 
    git clone git@github.com:knowintech/mtools.git
-   布局 如下：
-   standalone_toolchains32
-   mtools
-   然后进入mtools 目录
    cd mtools
    执行 build_32mtools.sh
-   即可执行编译
-3. push msend 到 insight
+3. push msend mreceive  到 android 系统 比如 insight
    adb push msend /system/bin
 4. 到insight 中执行msend
    adb shell
