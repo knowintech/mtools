@@ -1,13 +1,15 @@
 #!/bin/bash
 compiler_path=""
-NDK_MIX_VER="18"
+NDK_MIX_VER="13"
 NDK_VER_1_8="18"
 NDK_SUPPORT_GCC="17"
 DEST_GCC=""
 DEST_LD=""
 DEST_CFLAGS=""
 DEST_LDFALG=""
-
+#DEST_LOCAL_CFLAG+="-pie -fPIE"
+#export LOCAL_CFLAGS+="-pie -fPIE"
+#export LOCAL_LDFLAGS+="-pie -fPIE"
 
 function get_ndk_version()
 {
@@ -21,18 +23,80 @@ function get_ndk_version()
     return -1
 }
 
+function find_platform_max_ver()
+{
+    max="0"
+    ver=""
+    for tmp in `ls ${ANDROID_NDK}/platforms| grep android`
+    do
+         ver=${tmp#*-}
+         if [ "$ver" -gt "$max" ]; then
+            max=$ver
+         fi
+    done
+    echo $max
+}
+
 function get_platform_version()
 {
-     meta_file="${ANDROID_NDK}/meta/platforms.json"
-     version=$(string=`cat ${meta_file} | grep max`; var=${string#*:};echo ${var%%,*})
-     if [ -n "$version" ]; then
+    meta_file="${ANDROID_NDK}/meta/platforms.json"
+    if [ -f $meta_file ]; then
+        version=$(string=`cat ${meta_file} | grep max`; var=${string#*:};echo ${var%%,*})
+    else
+        version=$(find_platform_max_ver)
+    fi
+
+    if [ -n "$version" ]; then
         echo "$version"
         return 0
-     else
+    else
         echo "failed to get platmorm version,please check file path "
-     fi
+    fi
 
      return -1
+}
+
+function set_compiler_clang()
+{
+	pform_version=$(get_platform_version)
+	if [ -z $pform_version ]; then
+		echo "failed set compiler clang"
+		return -1
+	fi
+    compiler_path="${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+    DEST_GCC="armv7a-linux-androideabi${pform_version}-clang"
+    export PATH="${compiler_path}:${PATH}"
+    return 0
+}
+
+function set_compiler_standalone()
+{
+	pform_version=$(get_platform_version)
+    if [ -z $pform_version ]; then
+        echo "failed set compiler standalone"
+        return -1
+    fi
+
+	if [ ! -d "${ANDROID_NDK}/standalone_toolchains32" ]; then
+        echo "creating cross compilation tool chains"
+    	${ANDROID_NDK}/build/tools/make_standalone_toolchain.py --arch arm --api $pform_version --install-dir ${ANDROID_NDK}/standalone_toolchains32 --force
+        echo "finished creating cross compile tool chains"
+	fi
+	
+    if [ $? -ne 0 ]; then
+        echo "failed to check ndk env var"
+        return -1
+    fi
+	compiler_path="${ANDROID_NDK}/standalone_toolchains32/bin"
+	DEST_GCC=arm-linux-androideabi-gcc
+    ndk_version=$(get_ndk_version)
+    
+    if [ $ndk_version -lt $NDK_VER_1_8 ]; then
+        DEST_CFLAGS+="-pie -fPIE"
+    fi
+
+	export PATH=${ANDROID_NDK}/standalone_toolchains32/bin/:$PATH
+	return 0
 }
 
 function set_compiler()
@@ -41,19 +105,16 @@ function set_compiler()
     pform_version=$(get_platform_version)
     if [[ -n $ndk_version && -n $pform_version ]]; then
         if [ $ndk_version -gt $NDK_VER_1_8 ]; then  
-            compiler_path="${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/bin"
-            DEST_GCC="armv7a-linux-androideabi${pform_version}-clang"
+            set_compiler_clang
         else
-            echo "do not support this ndk version at present"
-            return -1
+            set_compiler_standalone
         fi
     else
-        echo "failed to set compiler"
-        return -1
+            echo "failed to set compiler."
+            return -1
     fi
 
-    export PATH="${compiler_path}:${PATH}"
-    return 0
+    return $?
 }
 
 
@@ -75,7 +136,6 @@ function check_env_var()
 function check_toolchains()
 {
     compiler="${compiler_path}/${DEST_GCC}"
-        
     if [ ! -f "$compiler" ]; then
         echo "ndk compiler does not exsit, please check ndk version or path ${compiler}"
         return -1
@@ -127,21 +187,27 @@ function env_valid_check()
 function make_mtools()
 {
     make clean
-    echo "make CC=$DEST_GCC CFLAGS=$DEST_CFLAGS LDFLAGS=$DEST_LDFALG"
-    make CC=$DEST_GCC CFLAGS="$DEST_CFLAGS" LD="$DEST_LD" LDFLAGS="$DEST_LDFALG"
+    make CC=$DEST_GCC CFLAGS="$DEST_CFLAGS"  LD="$DEST_LD" LDFLAGS="$DEST_LDFALG"
 }
 
 
+# main function, build mtools project
 function build_32mtools()
 {
     env_valid_check
     if [ $? -eq 0 ]; then
-        echo "${compiler_path}/${DEST_GCC}"
         make_mtools
     fi
 }
 
 
-# main function, build mtools project
+if [ -n "$1" ]; then
+   echo "help:"
+   echo "   please set env var ANDROID_NDK for NDK root directory first"
+   echo "   e.g. export ANDROID_NDK="/opt/ndk/android-ndk-r21""
+   echo "   and run ./build_32mtools.sh"
+   exit 0
+fi
 
 build_32mtools
+
