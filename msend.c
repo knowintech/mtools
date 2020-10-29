@@ -266,7 +266,7 @@ int main(int argc, char *argv[])
 
 			iRet = sendto(s, achOut, (NUM ? 4 : strlen(achOut) + 1), 0, (struct sockaddr *)&stTo, addr_size);
 			if (iRet < 0) {
-				printf("sendto() failed.\n");
+				printf("sendto() failed, iRet:%d\n", iRet);
 				exit(1);
 			}
 		}		/* end for(;;) */
@@ -289,7 +289,7 @@ void timerhandler(void)
 	}
 	iRet = sendto(handler_par.s, handler_par.achOut, handler_par.len, handler_par.n, handler_par.stTo, handler_par.addr_size);
 	if (iRet < 0) {
-		printf("sendto() failed.\n");
+		printf("sendto() failed, iRet:%d\n", iRet);
 		exit(1);
 	}
 	iCounter++;
