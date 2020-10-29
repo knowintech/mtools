@@ -200,6 +200,7 @@ int main(int argc, char *argv[])
 		iRet = recvfrom(s, achIn, BUFSIZE, 0, (struct sockaddr *)&stFrom, &addr_size);
 		if (iRet < 0) {
 			printf("recvfrom() failed.\n");
+            perror("recvfrom");
 			exit(1);
 		}
 
